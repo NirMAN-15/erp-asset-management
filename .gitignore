@@ -1,0 +1,20 @@
+# Go
+backend/main
+backend/*.exe
+backend/tmp/
+
+# Environment - NEVER commit real secrets
+.env
+*.env
+
+# Vue / Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
