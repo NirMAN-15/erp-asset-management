@@ -52,6 +52,102 @@ erp-asset-management/
 └── README.md                   # Project documentation
 ```
 
+## File Path Reference & Explanation
+
+This section links the key source files to what they do in the system. For each file path, the most important code sections are described so you can explain the exact behavior and data flow.
+
+### Backend File Paths
+- `backend/main.go`
+  - Loads environment variables with `godotenv.Load()`.
+  - Connects to the database with `config.ConnectDatabase()`.
+  - Auto-migrates tables for `models.Asset`, `models.Assignment`, and `models.Maintenance`.
+  - Starts the Gin server on the configured port.
+- `backend/config/database.go`
+  - Builds the Postgres DSN string from environment variables.
+  - Opens the database connection using `gorm.Open(postgres.Open(dsn), &gorm.Config{})`.
+  - Stores the connection in the package-level `DB` variable.
+- `backend/routes/router.go`
+  - Creates the Gin router with `gin.Default()`.
+  - Adds CORS headers and handles OPTIONS requests.
+  - Defines a `/health` endpoint for simple service checks.
+  - Registers `/api/v1/auth/login` for user authentication.
+  - Protects asset, assignment, and maintenance endpoints with `middleware.AuthMiddleware()`.
+- `backend/middleware/auth.go`
+  - Reads the `Authorization` header from requests.
+  - Requires a `Bearer` token prefix.
+  - Parses the JWT token using the `JWT_SECRET` environment variable.
+  - Rejects missing or invalid tokens with `401 Unauthorized`.
+- `backend/handlers/auth.go`
+  - Reads JSON payload with `username` and `password`.
+  - Validates credentials against hard-coded admin credentials.
+  - Creates a JWT token with a 24-hour expiration and returns it in JSON.
+- `backend/handlers/asset.go`
+  - `GetAssets()`: filters assets by query parameters (`status`, `category`) and returns JSON.
+  - `CreateAsset()`: binds request body to `models.Asset`, sets `CurrentValue`, and creates a record.
+  - `GetAsset()`: fetches one asset by `id` and returns it.
+  - `UpdateAsset()`: updates asset fields from request JSON and saves the record.
+  - `DeleteAsset()`: soft deletes the asset by updating `status` to `DISPOSED`.
+  - `GetDepreciation()`: computes straight-line depreciation and returns values.
+- `backend/handlers/assignment.go`
+  - `GetAssignments()`: returns active assignments where `returned_at IS NULL`.
+  - `AssignAsset()`: creates an assignment record, sets `AssignedAt`, and updates asset status to `ASSIGNED`.
+  - `ReturnAsset()`: marks an assignment returned and resets asset status to `ACTIVE`.
+  - `GetByEmployee()`: returns active assignments for a specific `employee_id`.
+- `backend/handlers/maintenance.go`
+  - `GetMaintenance()`: returns maintenance records ordered by scheduled date.
+  - `CreateMaintenance()`: binds JSON payload, sets `Status` to `SCHEDULED`, and updates asset status to `MAINTENANCE`.
+  - `CompleteMaintenance()`: marks maintenance complete and resets asset status to `ACTIVE`.
+- `backend/models/asset.go`
+  - Defines the `Asset` struct and maps fields to DB columns with GORM tags.
+  - Uses `json:"..."` tags so API responses use readable keys.
+  - Uses `BeforeCreate()` to auto-generate a UUID.
+- `backend/models/assignment.go`
+  - Defines the `Assignment` struct, including `AssetID`, `EmployeeID`, `AssignedAt`, and optional `ReturnedAt`.
+- `backend/models/maintenance.go`
+  - Defines the `Maintenance` struct, including `AssetID`, `ScheduledDate`, `CompletedDate`, `Cost`, and `Status`.
+
+### Frontend File Paths
+- `frontend/src/main.js`
+  - Creates the Vue application with `createApp(App)`.
+  - Registers Pinia and Vue Router.
+  - Mounts the app to the DOM element `#app`.
+- `frontend/src/App.vue`
+  - Contains the main layout and navigation sidebar.
+  - Uses `<router-view/>` to display current page content.
+  - Uses computed property `isLogin` to hide the nav when on the login page.
+  - Calls `auth.logout()` and redirects to `/login`.
+- `frontend/src/api/axios.js`
+  - Creates an Axios instance with `baseURL` from `VITE_API_URL` or default backend URL.
+  - Adds the JWT token from `localStorage` to every request.
+  - Redirects to `/login` when the backend returns `401 Unauthorized`.
+- `frontend/src/router/index.js`
+  - Defines routes for `/login`, `/assets`, `/assets/:id`, `/assignments`, and `/maintenance`.
+  - Uses `router.beforeEach()` to block protected pages when no token exists.
+- `frontend/src/stores/authStore.js`
+  - Stores the JWT token and current user in Pinia state.
+  - Loads saved token/user from `localStorage` on initialization.
+  - Implements `login()` to call `/auth/login` and save credentials.
+  - Implements `logout()` to clear saved token and user.
+- `frontend/src/stores/assetStore.js`
+  - Stores the asset list and loading state.
+  - `fetchAssets()` calls `/assets` with optional filters.
+  - `createAsset()` posts a new asset and adds it to the local list.
+  - `updateAsset()` saves updates and refreshes the local asset item.
+- `frontend/src/views/Login.vue`
+  - Displays the login form and calls `auth.login()`.
+  - Stores credentials in `localStorage` on successful login.
+- `frontend/src/views/AssetList.vue`
+  - Shows the asset table, filters, and add-asset form.
+  - Calls `fetchAssets()` on page load.
+  - Displays asset summary metrics and navigates to asset detail pages.
+- `frontend/src/views/AssetDetail.vue`
+  - Shows a single asset’s details and depreciation information.
+  - Allows editing or updating the asset.
+- `frontend/src/views/Assignments.vue`
+  - Shows assignments and allows asset assignment operations.
+- `frontend/src/views/Maintenance.vue`
+  - Shows maintenance schedule and allows maintenance creation/completion.
+
 ## Backend Detailed Explanation
 
 ### Language: Go (Golang)
