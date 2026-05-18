@@ -49,6 +49,8 @@
       <div style="background:#fff;border-radius:12px;padding:24px;width:460px;max-height:90vh;overflow-y:auto">
         <h2 style="font-size:16px;font-weight:500;margin-bottom:16px">Add New Asset</h2>
 
+        <div v-if="submitError" style="background:#fcebeb;border:0.5px solid #f5ccc9;border-radius:6px;padding:10px;margin-bottom:14px;font-size:12px;color:#a32d2d">{{ submitError }}</div>
+
         <label style="font-size:12px;color:#888">Asset Name *</label>
         <input v-model="newAsset.name" placeholder="Dell Laptop XPS 15" style="width:100%;padding:8px;border:0.5px solid #ddd;border-radius:6px;margin-bottom:10px;margin-top:4px">
 
@@ -109,13 +111,24 @@ const badge = s => ({
 })
 
 const newAsset = ref({
-  name: '', category: '', serial_number: '', location: '', purchase_date: '', purchase_value: '', asset_code: '', purchase_order_id: ''
+  name: '', category: '', serial_number: '', location: '', purchase_date: '', purchase_value: 0, asset_code: '', purchase_order_id: ''
 })
+const submitError = ref('')
 
 const submitAsset = async () => {
-  await store.createAsset(newAsset.value)
-  showForm.value = false
-  load()
+  submitError.value = ''
+  if (!newAsset.value.name || !newAsset.value.category || !newAsset.value.purchase_date || !newAsset.value.purchase_value || !newAsset.value.asset_code) {
+    submitError.value = 'Please fill in all required fields (*)'
+    return
+  }
+  try {
+    await store.createAsset(newAsset.value)
+    showForm.value = false
+    newAsset.value = { name: '', category: '', serial_number: '', location: '', purchase_date: '', purchase_value: 0, asset_code: '', purchase_order_id: '' }
+    load()
+  } catch (err) {
+    submitError.value = err.response?.data?.error || err.message || 'Failed to create asset'
+  }
 }
 
 </script>
